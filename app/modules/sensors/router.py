@@ -2,8 +2,8 @@ from typing import List
 
 from fastapi import APIRouter, Query
 
-from app.schemas.sensor import Sensor
-from app.services.sensor_service import list_sensors as svc_list_sensors, get_sensor as svc_get_sensor
+from app.modules.sensors.schemas import Sensor
+from app.modules.sensors.service import list_sensors as svc_list_sensors, get_sensor as svc_get_sensor
 from app.utils.common import paginate
 
 

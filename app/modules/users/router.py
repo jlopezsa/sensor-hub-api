@@ -2,8 +2,8 @@ from typing import List
 
 from fastapi import APIRouter, Query
 
-from app.schemas.user import User
-from app.services.user_service import list_users as svc_list_users, get_user as svc_get_user
+from app.modules.users.schemas import User
+from app.modules.users.service import list_users as svc_list_users, get_user as svc_get_user
 from app.utils.common import paginate
 
 

@@ -1,6 +1,6 @@
 from typing import List
 
-from app.schemas.sensor import Sensor
+from app.modules.sensors.schemas import Sensor
 
 
 def list_sensors() -> List[Sensor]:

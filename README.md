@@ -7,11 +7,9 @@ Plantilla mínima para iniciar un backend con Python y FastAPI.
 - `app/main.py`: Punto de entrada de FastAPI (rutas raíz y health).
 - `app/core/config.py`: Configuración por variables de entorno (Pydantic Settings).
 - `app/routers/routes.py`: Agregador de routers y rutas utilitarias (`/ping`, `/items`).
-- `app/routers/users.py`: Endpoints de usuarios.
-- `app/routers/sensors.py`: Endpoints de sensores.
-- `app/services/*`: Lógica de negocio simple de ejemplo.
-- `app/schemas/*`: Esquemas Pydantic (entrada/salida).
-- `app/models/*`: Modelos de dominio/ORM (placeholders por ahora).
+- `app/modules/users/*`: Módulo de usuarios (router, service, schemas, model).
+- `app/modules/sensors/*`: Módulo de sensores (router, service, schemas, model).
+- `app/utils/*`: Utilidades compartidas (e.g., paginación).
 - `app/utils/*`: Utilidades compartidas (e.g., paginación).
 - `.env.example`: Variables de entorno de ejemplo.
 - `pyproject.toml`: Gestión de dependencias con Poetry.

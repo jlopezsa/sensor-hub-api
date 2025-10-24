@@ -1,6 +1,6 @@
 from typing import List
 
-from app.schemas.user import User
+from app.modules.users.schemas import User
 
 
 def list_users() -> List[User]:

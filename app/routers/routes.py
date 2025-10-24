@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from app.routers.users import router as users_router
-from app.routers.sensors import router as sensors_router
+from app.modules.users.router import router as users_router
+from app.modules.sensors.router import router as sensors_router
 
 
 router = APIRouter()
@@ -19,4 +19,3 @@ def ping():
 @router.get("/items", tags=["items"])
 def list_items():
     return {"items": []}
-
