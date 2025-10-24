@@ -6,14 +6,21 @@ Plantilla mínima para iniciar un backend con Python y FastAPI.
 
 - `app/main.py`: Punto de entrada de FastAPI (rutas raíz y health).
 - `app/core/config.py`: Configuración por variables de entorno (Pydantic Settings).
-- `app/api/v1/routes.py`: Rutas de ejemplo (`/ping`, `/items`).
+- `app/routers/routes.py`: Agregador de routers y rutas utilitarias (`/ping`, `/items`).
+- `app/routers/users.py`: Endpoints de usuarios.
+- `app/routers/sensors.py`: Endpoints de sensores.
+- `app/services/*`: Lógica de negocio simple de ejemplo.
+- `app/schemas/*`: Esquemas Pydantic (entrada/salida).
+- `app/models/*`: Modelos de dominio/ORM (placeholders por ahora).
+- `app/utils/*`: Utilidades compartidas (e.g., paginación).
 - `.env.example`: Variables de entorno de ejemplo.
-- `requirements.txt`: Dependencias básicas.
-- `run.ps1` / `run.sh`: Scripts para levantar el servidor en dev.
+- `pyproject.toml`: Gestión de dependencias con Poetry.
+- `run.ps1` / `run.sh`: Scripts para levantar el servidor en dev (Poetry).
 
 ## Requisitos
 
 - Python 3.10+
+- Poetry
 
 ## Configuración rápida (Poetry)
 
@@ -22,10 +29,10 @@ Plantilla mínima para iniciar un backend con Python y FastAPI.
 
 ```bash
 # Linux/macOS
-bash run-poetry.sh
+bash run.sh
 
 # Windows (PowerShell)
-./run-poetry.ps1
+./run.ps1
 ```
 
 El servidor queda disponible en `http://localhost:8000`.
@@ -34,27 +41,26 @@ El servidor queda disponible en `http://localhost:8000`.
 
 - `GET /` → mensaje de bienvenida
 - `GET /health` → `{ "status": "ok" }`
-- `GET /api/v1/ping` → `{ "ping": "pong" }`
-- `GET /api/v1/items` → `{ "items": [] }`
+- `GET /api/ping` → `{ "ping": "pong" }`
+- `GET /api/items` → `{ "items": [] }`
+- `GET /api/users`, `GET /api/users/{id}`
+- `GET /api/sensors`, `GET /api/sensors/{id}`
 
 ## Ejecutar manualmente
 
 ```bash
-# Con Poetry
 poetry install
 poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Personalización siguiente
 
-- Agrega routers por dominio (e.g., `app/api/v1/users.py`).
+- Extiende routers por dominio (e.g., `app/routers/`).
 - Añade modelos y esquemas (Pydantic) según tu dominio.
 - Integra base de datos (SQLModel/SQLAlchemy) y settings de DB.
 - Configura CORS, logging y middlewares.
 
 ## Tests
-
-Ejecuta la suite de tests con pytest:
 
 ```bash
 poetry run pytest

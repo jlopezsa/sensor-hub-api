@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.v1.routes import router as api_v1_router
+from app.routers.routes import router as api_router
 from app.core.config import settings
 
 
@@ -17,5 +17,4 @@ def health():
     return {"status": "ok"}
 
 
-app.include_router(api_v1_router, prefix=settings.API_V1_STR)
-
+app.include_router(api_router, prefix=settings.API_PREFIX)
