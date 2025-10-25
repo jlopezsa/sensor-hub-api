@@ -70,6 +70,7 @@ ehthumbs.db
 Desktop.ini
 *$RECYCLE.BIN/
 *.lnk
+data/
 
 # Data base files
 /data
