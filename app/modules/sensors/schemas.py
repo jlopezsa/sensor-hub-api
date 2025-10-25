@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
@@ -11,7 +12,7 @@ class Sensor(BaseModel):
 
 class SensorReading(BaseModel):
     sensor_id: int
-    timestamp: str
+    timestamp: datetime
     value: float
 
     model_config = ConfigDict(from_attributes=True)

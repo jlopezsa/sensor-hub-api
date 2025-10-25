@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Optional
+import inspect
+from typing import Callable, Optional, Awaitable
 from uuid import uuid4
 
 from gmqtt import Client as GMQTTClient
@@ -9,7 +10,7 @@ from gmqtt import Client as GMQTTClient
 from app.core.config import settings
 
 
-MessageHandler = Callable[[str, str], None]
+MessageHandler = Callable[[str, str], Optional[Awaitable[None]]]
 
 
 class MQTTManager:
@@ -71,8 +72,15 @@ class MQTTManager:
         self._connected.clear()
 
     def _handle_message(self, client: GMQTTClient, topic: str, payload: str, qos, properties) -> None:
-        if self._on_message:
-            self._on_message(topic, payload)
+        if not self._on_message:
+            return
+        handler = self._on_message
+        # gmqtt passes payload as bytes
+        payload_str = payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else str(payload)
+        if inspect.iscoroutinefunction(handler):
+            asyncio.create_task(handler(topic, payload_str))
+        else:
+            handler(topic, payload_str)
 
 
 _manager: Optional[MQTTManager] = None

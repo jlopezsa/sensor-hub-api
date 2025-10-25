@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     MQTT_USERNAME: Optional[str] = None
     MQTT_PASSWORD: Optional[str] = None
     MQTT_CLIENT_ID: Optional[str] = None
+    MQTT_SUBSCRIBE_TOPICS: Optional[str] = "sensors/#"
 
     model_config = SettingsConfigDict(
         env_file=".env",
