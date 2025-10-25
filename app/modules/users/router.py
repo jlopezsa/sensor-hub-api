@@ -19,6 +19,7 @@ async def list_users(
     limit: int | None = Query(None, ge=1),
     session: AsyncSession = Depends(get_session),
 ):
+    print("============> Into controller of Listing users")
     users = await svc_list_users(session=session)
     return paginate(users, skip=skip, limit=limit)
 
