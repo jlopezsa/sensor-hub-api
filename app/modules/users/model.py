@@ -1,7 +1,12 @@
-# Placeholder para modelo de dominio/DB de Usuario
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 
-class UserModel:
-    def __init__(self, id: int, name: str) -> None:
-        self.id = id
-        self.name = name
+from app.db.base import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
 

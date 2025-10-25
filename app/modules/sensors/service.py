@@ -1,12 +1,22 @@
 from typing import List
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.sensors.model import Sensor as SensorModel
 from app.modules.sensors.schemas import Sensor
 
 
-def list_sensors() -> List[Sensor]:
-    return [Sensor(id=1, name="sensor-1"), Sensor(id=2, name="sensor-2")]
+async def list_sensors(session: AsyncSession) -> List[Sensor]:
+    result = await session.execute(select(SensorModel))
+    sensors = result.scalars().all()
+    return [Sensor.model_validate(sensor) for sensor in sensors]
 
 
-def get_sensor(sensor_id: int) -> Sensor:
-    return Sensor(id=sensor_id, name=f"sensor-{sensor_id}")
+async def get_sensor(sensor_id: int, session: AsyncSession) -> Sensor | None:
+    result = await session.execute(select(SensorModel).where(SensorModel.id == sensor_id))
+    sensor = result.scalar_one_or_none()
+    if sensor is None:
+        return None
+    return Sensor.model_validate(sensor)
 
