@@ -1,7 +1,7 @@
-from datetime import datetime
+﻿from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.sensors.model import Sensor as SensorModel
@@ -32,7 +32,7 @@ async def create_reading(sensor_id: int, value: float, session: AsyncSession, *,
 
 
 async def create_reading_from_topic(topic: str, payload: str, session: AsyncSession) -> None:
-    """Parsea topic/payload y crea lectura si coincide con el patrón sensors/<id>."""
+    """Parsea topic/payload y crea lectura si coincide con el patrÃ³n sensors/<id>."""
     if not topic.startswith("sensors/"):
         return
     _, _, id_part = topic.partition("/")
@@ -78,7 +78,7 @@ async def list_readings(
     stmt = select(SensorReadingModel).where(SensorReadingModel.sensor_id == sensor_id)
     if since is not None:
         stmt = stmt.where(SensorReadingModel.timestamp >= since)
-    # Más recientes primero
+    # MÃ¡s recientes primero
     from sqlalchemy import desc
 
     stmt = stmt.order_by(desc(SensorReadingModel.timestamp))
@@ -92,17 +92,8 @@ async def list_readings(
     ]
 
 
-# NOTE: Override previous implementation to support string IDs, JSON payloads, and timestamps
+# Final override: support DHT11_temperature/DHT11_humidity style names
 async def create_reading_from_topic(topic: str, payload: str, session: AsyncSession) -> None:  # type: ignore[override]
-    """Parsea topic/payload y crea lectura si coincide con el patrón sensors/<identificador>.
-
-    - <identificador> puede ser numérico (id) o de texto (name) del sensor.
-    - Payload soportado:
-        * Número (float) directo -> value
-        * JSON con clave "value" y opcionalmente "timestamp" (ISO8601 o epoch ms/s)
-        * Si el JSON contiene "sensorId", se prioriza para resolver el sensor
-    - No se crea el sensor automáticamente: solo guarda si el sensor ya existe.
-    """
     import logging as _logging
     import json as _json
 
@@ -110,56 +101,98 @@ async def create_reading_from_topic(topic: str, payload: str, session: AsyncSess
     if not topic.startswith("sensors/"):
         return
 
-    # Identificador inicial desde el tópico
+    # Identificador exacto desde el tÃ³pico (puede incluir sufijos)
     _, _, id_part = topic.partition("/")
-    identifier: Optional[str] = (id_part or "").strip() or None
+    topic_identifier: Optional[str] = (id_part or "").strip() or None
+    topic_metric: Optional[str] = None
+    base_from_topic: Optional[str] = None
+    if topic_identifier and "_" in topic_identifier:
+        base_from_topic, _, suffix = topic_identifier.partition("_")
+        base_from_topic = base_from_topic or None
+        topic_metric = (suffix or "").strip().lower() or None
 
-    # Intentar parseo del payload
+    # Parseo del payload
     ts: Optional[datetime] = None
     value: Optional[float] = None
-    payload_data: Optional[dict[str, object]] = None
+    identifier_from_payload: Optional[str] = None
+    metric: Optional[str] = None
 
-    # 1) payload como número plano
     try:
         value = float(payload)
     except ValueError:
-        # 2) payload como JSON
         try:
-            payload_data = _json.loads(payload)
+            data = _json.loads(payload)
         except Exception:
-            # payload no reconocido
             return
-
-    if payload_data is not None:
         try:
-            if "sensorId" in payload_data and isinstance(payload_data["sensorId"], str):
-                identifier = payload_data["sensorId"].strip() or identifier
-            if "value" in payload_data:
-                value = float(payload_data["value"])  # puede lanzar
-            raw_ts = payload_data.get("timestamp")
+            if "value" in data:
+                value = float(data["value"])  # puede lanzar
+            sid = data.get("sensorId")
+            if isinstance(sid, str):
+                identifier_from_payload = sid.strip() or None
+            t = data.get("type")
+            if isinstance(t, str):
+                metric = t.strip().lower() or None
+            raw_ts = data.get("timestamp")
             if raw_ts is not None:
                 ts = _parse_any_timestamp(raw_ts)
         except Exception:
             return
 
     if value is None:
-        # no hay valor válido que guardar
         return
 
-    # Resolver sensor_id por id numérico o por nombre
-    sensor_id = await _resolve_sensor_id(identifier, session)
+    # Construir candidatos en orden de prioridad
+    candidates: list[str] = []
+    # 1) nombre completo del tÃ³pico (con sufijo)
+    if topic_identifier and "_" in topic_identifier:
+        candidates.append(topic_identifier)
+    # 2) sensorId + type del payload
+    if identifier_from_payload and metric:
+        candidates.append(f"{identifier_from_payload}_{metric}")
+    # 3) sensorId + sufijo del tÃ³pico
+    if identifier_from_payload and topic_metric:
+        candidates.append(f"{identifier_from_payload}_{topic_metric}")
+    # 4) nombre simple del tÃ³pico
+    if topic_identifier:
+        candidates.append(topic_identifier)
+    # 5) base del tÃ³pico (sin sufijo)
+    if base_from_topic:
+        candidates.append(base_from_topic)
+    # 6) solo sensorId
+    if identifier_from_payload:
+        candidates.append(identifier_from_payload)
+
+    # de-duplicar preservando orden
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            ordered.append(c)
+
+    sensor_id: Optional[int] = None
+    logger.debug("MQTT ingest candidates=%s topic=%s", ordered, topic)
+    for cand in ordered:
+        sid = await _resolve_sensor_id2(cand, session)
+        if sid is not None:
+            sensor_id = sid
+            logger.info("MQTT ingest matched sensor '%s' -> id=%s", cand, sid)
+            break
+
     if sensor_id is None:
-        # No crear sensores automáticamente por ahora
-        logger.info("Ignoring reading for unknown sensor identifier=%s", identifier)
+        logger.info("Ignoring reading for unknown sensor candidates=%s", ordered)
         return
 
     await create_reading(sensor_id=sensor_id, value=value, session=session, ts=ts)
 
 
+
+
 def _parse_any_timestamp(raw: object) -> Optional[datetime]:
     """Acepta ISO-8601, epoch en segundos o milisegundos.
 
-    Heurística:
+    HeurÃ­stica:
     - str -> intentar ISO
     - int/float:
         * >= 1e12 -> epoch ms
@@ -185,11 +218,10 @@ def _parse_any_timestamp(raw: object) -> Optional[datetime]:
     return None
 
 
-async def _resolve_sensor_id(identifier: Optional[str], session: AsyncSession) -> Optional[int]:
-    """Devuelve el id de sensor si existe, resolviendo por id numérico o por nombre exacto."""
+async def _resolve_sensor_id2(identifier: Optional[str], session: AsyncSession) -> Optional[int]:
+    """Versión robusta: resuelve por id, nombre exacto o nombre case-insensitive."""
     if not identifier:
         return None
-    # Intentar id numérico directo
     try:
         sensor_id = int(identifier)
         result = await session.execute(select(SensorModel.id).where(SensorModel.id == sensor_id))
@@ -198,9 +230,34 @@ async def _resolve_sensor_id(identifier: Optional[str], session: AsyncSession) -
             return sensor_id
     except ValueError:
         pass
-    # Resolver por nombre
+    # exacto
     result = await session.execute(select(SensorModel).where(SensorModel.name == identifier))
     sensor = result.scalar_one_or_none()
-    if sensor is None:
+    if sensor is not None:
+        return sensor.id
+    # case-insensitive
+    try:
+        lowered = identifier.lower()
+        result = await session.execute(select(SensorModel).where(func.lower(SensorModel.name) == lowered))
+        sensor = result.scalar_one_or_none()
+        if sensor is not None:
+            return sensor.id
+    except Exception:
+        pass
+    return None
+
+async def _resolve_sensor_id(identifier: Optional[str], session: AsyncSession) -> Optional[int]:
+    """Devuelve el id de sensor si existe, resolviendo por id numÃ©rico o por nombre exacto."""
+    if not identifier:
         return None
-    return sensor.id
+    # Intentar id numÃ©rico directo
+    try:
+        sensor_id = int(identifier)
+        result = await session.execute(select(SensorModel.id).where(SensorModel.id == sensor_id))
+        row = result.first()
+        if row is not None:
+            return sensor_id
+    except ValueError:
+        pass
+    # Resolver por nombre exacto\r\n    result = await session.execute(select(SensorModel).where(SensorModel.name == identifier))\r\n    sensor = result.scalar_one_or_none()\r\n    if sensor is not None:\r\n        return sensor.id\r\n    # Resolver por nombre case-insensitive\r\n    try:\r\n        lowered = identifier.lower()\r\n        result = await session.execute(select(SensorModel).where(func.lower(SensorModel.name) == lowered))\r\n        sensor = result.scalar_one_or_none()\r\n        if sensor is not None:\r\n            return sensor.id\r\n    except Exception:\r\n        pass\r\n    return None
+
