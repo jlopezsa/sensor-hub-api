@@ -32,7 +32,7 @@ async def create_reading(sensor_id: int, value: float, session: AsyncSession, *,
 
 
 async def create_reading_from_topic(topic: str, payload: str, session: AsyncSession) -> None:
-    """Parsea topic/payload y crea lectura si coincide con el patrÃ³n sensors/<id>."""
+    """Parsea topic/payload y crea lectura si coincide con el patrón sensors/<id>."""
     if not topic.startswith("sensors/"):
         return
     _, _, id_part = topic.partition("/")
@@ -78,7 +78,7 @@ async def list_readings(
     stmt = select(SensorReadingModel).where(SensorReadingModel.sensor_id == sensor_id)
     if since is not None:
         stmt = stmt.where(SensorReadingModel.timestamp >= since)
-    # MÃ¡s recientes primero
+    # Más recientes primero
     from sqlalchemy import desc
 
     stmt = stmt.order_by(desc(SensorReadingModel.timestamp))
