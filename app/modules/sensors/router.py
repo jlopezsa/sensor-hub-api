@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -11,6 +11,7 @@ from app.modules.sensors.service import (
     list_readings as svc_list_readings,
     list_sensors as svc_list_sensors,
 )
+from app.modules.sensors.websocket_manager import get_sensor_ws_manager
 from app.utils.common import paginate
 
 
@@ -43,4 +44,19 @@ async def get_readings(
     session: AsyncSession = Depends(get_session),
 ):
     return await svc_list_readings(sensor_id=sensor_id, since=since, limit=limit, session=session)
+
+
+@router.websocket("/ws")
+async def sensor_stream(websocket: WebSocket, sensor_id: int | None = Query(None)):
+    await websocket.accept()
+    manager = get_sensor_ws_manager()
+    await manager.connect(websocket, sensor_id)
+    try:
+        # Keep the connection open; we ignore incoming client messages.
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await manager.disconnect(websocket, sensor_id)
 

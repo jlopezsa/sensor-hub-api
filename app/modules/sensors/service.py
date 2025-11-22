@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.sensors.model import Sensor as SensorModel
 from app.modules.sensors.model import SensorReading as SensorReadingModel
 from app.modules.sensors.schemas import Sensor, SensorReading
+from app.modules.sensors.websocket_manager import get_sensor_ws_manager
 
 
 async def list_sensors(session: AsyncSession) -> List[Sensor]:
@@ -29,6 +30,20 @@ async def create_reading(sensor_id: int, value: float, session: AsyncSession, *,
         reading.timestamp = ts
     session.add(reading)
     await session.commit()
+    await session.refresh(reading)
+
+    # Push reading to websocket subscribers; swallow errors to not block ingestion path.
+    try:
+        await get_sensor_ws_manager().broadcast_reading(
+            sensor_id=sensor_id,
+            payload={
+                "sensor_id": sensor_id,
+                "timestamp": reading.timestamp.isoformat(),
+                "value": reading.value,
+            },
+        )
+    except Exception:
+        pass
 
 
 async def create_reading_from_topic(topic: str, payload: str, session: AsyncSession) -> None:
