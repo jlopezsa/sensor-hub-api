@@ -71,6 +71,7 @@ Desktop.ini
 *$RECYCLE.BIN/
 *.lnk
 data/
+pgadmin/
 
 # Data base files
 /data

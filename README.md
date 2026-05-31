@@ -4,18 +4,21 @@ Starter backend template with FastAPI, async SQLAlchemy, and a modular layout re
 
 ## Project Layout
 
-- `app/main.py` – FastAPI entrypoint, healthcheck, database bootstrap, MQTT startup hook.
-- `app/core/config.py` – Pydantic settings driven by environment variables.
-- `app/db/` – async engine/session factory (`session.py`) and declarative base (`base.py`).
-- `app/modules/users/*` – users module (router, service, schemas, SQLAlchemy model).
-- `app/modules/sensors/*` – sensors module (router, service, schemas, models for sensors/readings).
-- `app/modules/mqtt/*` – MQTT client module (manager, service, publish schema, router).
-- `app/routers/routes.py` – aggregates module routers and exposes utility endpoints (`/ping`, `/items`).
-- `app/utils/*` – shared helpers (pagination, etc.).
-- `.env.example` – sample environment variables.
-- `docker-compose.yml` – TimescaleDB, pgAdmin, and Mosquitto services for local development.
-- `pyproject.toml` – Poetry-managed dependencies.
-- `run.sh` / `run.ps1` – convenience scripts that install deps and run Uvicorn.
+- `app/main.py` - FastAPI entrypoint, healthcheck, database bootstrap, MQTT startup hook.
+- `app/core/config.py` - Pydantic settings driven by environment variables.
+- `app/db/` - async engine/session factory (`session.py`) and declarative base (`base.py`).
+- `app/modules/users/*` - users module (router, service, schemas, SQLAlchemy model).
+- `app/modules/sensors/*` - sensors module (router, service, schemas, models for sensors/readings).
+- `app/modules/mqtt/*` - MQTT client module (manager, service, publish schema, router).
+- `app/routers/routes.py` - aggregates module routers and exposes utility endpoints (`/ping`, `/items`).
+- `app/utils/*` - shared helpers (pagination, etc.).
+- `.env.example` - sample environment variables.
+- `docker-compose.yml` - backend API, TimescaleDB, pgAdmin, and Mosquitto services for local development.
+- `Dockerfile` - container image for the backend development stack.
+- `pyproject.toml` - Poetry-managed dependencies.
+- `run.sh` / `run.ps1` - convenience scripts that install deps and run Uvicorn.
+
+The Docker backend mounts only `./app` into the container for live reload, which avoids leaking the host `.venv` into the Linux container.
 
 ## Requirements
 
@@ -23,7 +26,7 @@ Starter backend template with FastAPI, async SQLAlchemy, and a modular layout re
 - Poetry
 - Docker (optional, for the compose stack).
 - PostgreSQL/TimescaleDB reachable from your machine.
-- MQTT broker (e.g., Eclipse Mosquitto) if you plan to publish/subscribe.
+- MQTT broker (for example, Eclipse Mosquitto) if you plan to publish/subscribe.
 
 ## Quickstart
 
@@ -31,41 +34,50 @@ Starter backend template with FastAPI, async SQLAlchemy, and a modular layout re
 cp .env.example .env
 # adjust DATABASE_URL and MQTT_* variables to match your environment
 
-# (Optional) start services with docker compose
-docker compose up -d timescaledb pgadmin mqtt
+# start the full stack with docker compose
+docker compose up -d --build
 
-# Linux/macOS
+# optional local run outside Docker on Linux/macOS
 bash run.sh
 
-# Windows (PowerShell)
+# optional local run outside Docker on Windows PowerShell
 ./run.ps1
 ```
 
 The API will be available at `http://localhost:8000`.
+pgAdmin will be available at `http://localhost:8080`.
 
-## Environment variables
+## Environment Variables
 
 ```ini
 APP_NAME=Sensor Hub API
 DEBUG=true
 API_PREFIX=/api
-DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/sensor_hub
+DATABASE_URL=postgresql+psycopg://postgres:postgres123@127.0.0.1:5432/sensor_hub
 MQTT_BROKER_HOST=localhost
 MQTT_BROKER_PORT=1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
 MQTT_CLIENT_ID=sensor-hub-api
+MQTT_SUBSCRIBE_TOPICS=sensors/#
 ```
 
-## Database & TimescaleDB
+When the backend runs inside Docker Compose, these values are overridden automatically:
 
-1. Spin up TimescaleDB (Docker example):
+```ini
+DATABASE_URL=postgresql+psycopg://postgres:postgres123@timescaledb:5432/sensor_hub
+MQTT_BROKER_HOST=mqtt
+```
+
+## Database and TimescaleDB
+
+1. Spin up TimescaleDB only if you want the database without the full compose stack:
 
    ```bash
    docker run --name timescaledb -p 5432:5432 -e POSTGRES_PASSWORD=postgres -d timescale/timescaledb:2.15.2-pg16
    ```
 
-2. Create the database and enable Timescale extension:
+2. Create the database and enable the Timescale extension:
 
    ```sql
    CREATE DATABASE sensor_hub;
@@ -90,7 +102,17 @@ MQTT_CLIENT_ID=sensor-hub-api
 
 > Startup currently runs `Base.metadata.create_all()` for development convenience. Remove it once migrations control the schema.
 
-## MQTT broker
+To access the database from pgAdmin running in Docker, configure the server as:
+
+```text
+Host: timescaledb
+Port: 5432
+Database: sensor_hub
+Username: postgres
+Password: postgres123
+```
+
+## MQTT Broker
 
 - `docker-compose.yml` includes a Mosquitto service with default config (`docker/mqtt/mosquitto.conf`).
 - On startup the app attempts to connect to the broker; failures are logged but do not crash the API.
@@ -104,22 +126,35 @@ curl -X POST http://localhost:8000/api/mqtt/publish \
   -d '{"topic": "sensors/1", "payload": "42.5", "qos": 1}'
 ```
 
-## Initial endpoints
+## Initial Endpoints
 
-- `GET /` – welcome payload
-- `GET /health` – `{ "status": "ok" }`
-- `GET /api/ping` – `{ "ping": "pong" }`
-- `GET /api/items` – `{ "items": [] }`
+- `GET /` - welcome payload
+- `GET /health` - `{ "status": "ok" }`
+- `GET /api/ping` - `{ "ping": "pong" }`
+- `GET /api/items` - `{ "items": [] }`
 - `GET /api/users`, `GET /api/users/{id}`
 - `GET /api/sensors`, `GET /api/sensors/{id}`
-- `POST /api/mqtt/publish` – publish MQTT messages through the backend
+- `POST /api/mqtt/publish` - publish MQTT messages through the backend
 
-## Manual run
+## Manual Run
 
 ```bash
 poetry install
 poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+## Docker Compose Stack
+
+```bash
+docker compose up -d --build
+```
+
+Services:
+
+- Backend API: `http://localhost:8000`
+- pgAdmin: `http://localhost:8080`
+- PostgreSQL/TimescaleDB: `127.0.0.1:5432`
+- MQTT broker: `127.0.0.1:1883`
 
 ## Tests
 
@@ -127,7 +162,7 @@ poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 poetry run pytest
 ```
 
-## Suggested next steps
+## Suggested Next Steps
 
 - Add POST/PUT/DELETE endpoints using transactions (`AsyncSession`).
 - Create a readings ingestion module that subscribes to MQTT topics and writes to TimescaleDB.

@@ -1,6 +1,32 @@
 version: "3.9"
 
 services:
+  backend:
+    build:
+      context: .
+    container_name: sensor-hub-api
+    restart: always
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres123@timescaledb:5432/sensor_hub
+      MQTT_BROKER_HOST: mqtt
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    command: poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   timescaledb:
     image: timescale/timescaledb:2.14.2-pg16
     container_name: timescaledb
@@ -28,8 +54,11 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin123
     ports:
       - "8080:80"
+    volumes:
+      - ./pgadmin:/var/lib/pgadmin
     depends_on:
-      - timescaledb
+      timescaledb:
+        condition: service_healthy
 
   mqtt:
     image: eclipse-mosquitto:2
