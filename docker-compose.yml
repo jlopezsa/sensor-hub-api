@@ -4,6 +4,7 @@ services:
   backend:
     build:
       context: .
+    image: jlopezsa/sensor-hub-api:0.1.0
     container_name: sensor-hub-api
     restart: always
     env_file:

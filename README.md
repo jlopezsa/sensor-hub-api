@@ -169,3 +169,86 @@ poetry run pytest
 - Wire Alembic migrations to manage hypertables and schema changes.
 - Add authentication/authorization per module.
 - Write integration tests against containerized services.
+
+# Running with Docker Compose
+
+## Build images
+
+```bash
+docker compose -f docker-compose.yml build
+```
+
+### Create new tags
+It creates a new latest tag that points to the same image as jlopezsa/sensor-hub-api:0.1.0.
+It does not duplicate the image; it only adds another tag.
+
+```bash
+docker tag jlopezsa/sensor-hub-api:0.1.0 jlopezsa/sensor-hub-api:latest
+```
+
+### Push Docker Hub images
+
+```bash
+docker push jlopezsa/sensor-hub-api:0.1.0
+```
+
+or
+
+```bash
+docker push jlopezsa/sensor-hub-api:latest
+```
+
+### Pull Docker Hub images
+
+```bash
+docker pull jlopezsa/sensor-hub-api:0.1.0
+```
+
+or
+
+```bash
+docker pull jlopezsa/sensor-hub-api:latest
+```
+
+
+## Running with Docker Compose
+
+To start the full local stack in the background:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+Starts all services defined in `docker-compose.yml` in detached mode.
+
+To stop all containers defined in the compose file without removing them:
+
+```bash
+docker compose -f docker-compose.yml stop
+```
+
+Stops all services defined in `docker-compose.yml` without removing containers or volumes.
+
+To stop and remove the containers, network, and other compose resources:
+
+```bash
+docker compose -f docker-compose.yml down
+```
+
+Stops and removes all services defined in `docker-compose.yml`.
+
+If you also want to remove the named volumes and start fresh later, use:
+
+```bash
+docker compose -f docker-compose.yml down -v
+```
+
+Stops the stack and also removes the volumes created by `docker-compose.yml`.
+
+To remove stopped containers defined in the compose file:
+
+```bash
+docker compose -f docker-compose.yml rm
+```
+
+Removes stopped containers created from `docker-compose.yml`.
